@@ -1,0 +1,11 @@
+.deps
+*.o
+autom4te.cache
+recpt1/config*
+recpt1/checksignal
+recpt1/configure
+recpt1/configure~
+recpt1/Makefile
+recpt1/recpt1
+recpt1/recpt1ctl
+recpt1/version.h
