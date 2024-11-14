@@ -15,4 +15,6 @@ jobs:
           git remote add stz https://github.com/stz2012/recpt1
           git fetch stz master
           git merge stz/master
-          git commit -am "fetch upstream" ; git push || exit 0
+          git add .
+          git commit -m "fetch upstream" || exit 0
+          git push
