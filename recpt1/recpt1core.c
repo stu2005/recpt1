@@ -9,7 +9,7 @@
 
 /* globals */
 boolean f_exit = FALSE;
-char  bs_channel_buf[8];
+char  bs_channel_buf[20];
 ISDB_T_FREQ_CONV_TABLE isdb_t_conv_set = { 0, CHTYPE_SATELLITE, 0, bs_channel_buf };
 
 
@@ -55,7 +55,7 @@ searchrecoff(char *channel)
                 if(*++bs_ch == '\0' && slot < ISDB_T_SLOT_LIMIT) {
                     isdb_t_conv_set.set_freq = node / 2;
                     isdb_t_conv_set.add_freq = slot;
-                    sprintf(bs_channel_buf, "BS%d_%d", node, slot);
+                    snprintf(bs_channel_buf, sizeof(bs_channel_buf), "BS%d_%d", node, slot);
                     return &isdb_t_conv_set;
                 }
             }
@@ -83,7 +83,7 @@ close_tuner(thread_data *tdata)
         return rv;
 
     if(tdata->table->type == CHTYPE_SATELLITE) {
-        if(ioctl(tdata->tfd, LNB_DISABLE, 0) < 0) {
+        if(ioctl(tdata->tfd, PTX_DISABLE_LNB_POWER, 0) < 0) {
             rv = 1;
         }
     }
@@ -146,7 +146,7 @@ calc_cn(int fd, int type, boolean use_bell)
     double  CNR;
     int bell = 0;
 
-    if(ioctl(fd, GET_SIGNAL_STRENGTH, &rc) < 0) {
+    if(ioctl(fd, PTX_GET_CNR, &rc) < 0) {
         fprintf(stderr, "Tuner Select Error\n");
         return ;
     }
@@ -378,7 +378,8 @@ tune(char *channel, thread_data *tdata, char *device)
     char **tuner;
     int num_devs;
     int lp;
-    FREQUENCY freq;
+    struct ptx_freq freq;
+    enum ptx_system_type system;
 
     /* get channel */
     tdata->table = searchrecoff(channel);
@@ -387,7 +388,7 @@ tune(char *channel, thread_data *tdata, char *device)
         return 1;
     }
 
-    freq.frequencyno = tdata->table->set_freq;
+    freq.freq_no = tdata->table->set_freq;
     freq.slot = tdata->table->add_freq;
 
     /* open tuner */
@@ -401,13 +402,28 @@ tune(char *channel, thread_data *tdata, char *device)
 
         /* power on LNB */
         if(tdata->table->type == CHTYPE_SATELLITE) {
-            if(ioctl(tdata->tfd, LNB_ENABLE, tdata->lnb) < 0) {
+            if(ioctl(tdata->tfd, PTX_ENABLE_LNB_POWER, tdata->lnb) < 0) {
                 fprintf(stderr, "Power on LNB failed: %s\n", device);
             }
         }
 
+        /* set system mode */
+        if(tdata->table->type == CHTYPE_SATELLITE) {
+            system = PTX_ISDB_S_SYSTEM;
+            if(ioctl(tdata->tfd, PTX_SET_SYSTEM_MODE, system) < 0) {
+                fprintf(stderr, "Set ISDB-S Mode failed: %s\n", device);
+            }
+            fprintf(stderr, "set ISDB-S mode\n");
+        } else if (tdata->table->type == CHTYPE_GROUND) {
+            system = PTX_ISDB_T_SYSTEM;
+            if(ioctl(tdata->tfd, PTX_SET_SYSTEM_MODE, system) < 0) {
+                fprintf(stderr, "Set ISDB-T Mode failed: %s\n", device);
+            }
+            fprintf(stderr, "set ISDB-T mode\n");
+        }
+
         /* tune to specified channel */
-        while(ioctl(tdata->tfd, SET_CHANNEL, &freq) < 0) {
+        while(ioctl(tdata->tfd, PTX_SET_CHANNEL, &freq) < 0) {
             if(tdata->tune_persistent) {
                 if(f_exit) {
                     close_tuner(tdata);
@@ -442,14 +458,14 @@ tune(char *channel, thread_data *tdata, char *device)
             if(tdata->tfd >= 0) {
                 /* power on LNB */
                 if(tdata->table->type == CHTYPE_SATELLITE) {
-                    if(ioctl(tdata->tfd, LNB_ENABLE, tdata->lnb) < 0) {
+                    if(ioctl(tdata->tfd, PTX_ENABLE_LNB_POWER, tdata->lnb) < 0) {
                         fprintf(stderr, "Warning: Power on LNB failed: %s\n", tuner[lp]);
                     }
                 }
 
                 /* tune to specified channel */
                 if(tdata->tune_persistent) {
-                    while(ioctl(tdata->tfd, SET_CHANNEL, &freq) < 0 &&
+                    while(ioctl(tdata->tfd, PTX_SET_CHANNEL, &freq) < 0 &&
                           count < MAX_RETRY) {
                         if(f_exit) {
                             close_tuner(tdata);
@@ -466,7 +482,7 @@ tune(char *channel, thread_data *tdata, char *device)
                     }
                 } /* tune_persistent */
                 else {
-                    if(ioctl(tdata->tfd, SET_CHANNEL, &freq) < 0) {
+                    if(ioctl(tdata->tfd, PTX_SET_CHANNEL, &freq) < 0) {
                         close(tdata->tfd);
                         tdata->tfd = -1;
                         continue;

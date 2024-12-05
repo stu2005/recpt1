@@ -29,7 +29,7 @@
 #include <arpa/inet.h>
 #include <netinet/in.h>
 
-#include "pt1_ioctl.h"
+#include "ptx_ioctl.h"
 #include "config.h"
 #include "decoder.h"
 #include "recpt1.h"
