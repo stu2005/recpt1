@@ -17,5 +17,6 @@ jobs:
           git fetch stz master
           git fetch m1ur feature-px4
           git merge stz/master
+          git push origin master
           git merge m1ur/feature-px4
           git push origin master
